@@ -1,0 +1,22 @@
+# Agentic files
+.omc/
+plans/
+*.md
+
+# laTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+paper.pdf
+
+# old submission to neurips
+NeurIPS_Paper/
+
+
+

@@ -141,6 +141,8 @@ Tsuchiya and Takefuji applied classical neural networks to the No-Three-In-Line 
 
 This study presents the first comparison of classical and AI-driven methods for the No-Three-In-Line problem. We compare four approaches: integer linear programming using the Gurobi solver, transformer-based pattern learning via the PatternBoost framework, reinforcement learning using Proximal Policy Optimization (PPO) \cite{Schulman2017}, and SciML \cite{RackauckasNie2017,Karniadakis2021}.
 
+To go beyond discrete search, we recast the No-Three-In-Line problem as continuous energy minimisation and solve it via gradient flow \cite{RackauckasNie2017,Karniadakis2021}. An energy that penalises collinearity and rewards point count drives placement variables in $[0,1]^{n^2}$ towards near-binary configurations, which are then thresholded to yield discrete solutions.
+
 \textbf{Our contributions are:}
 \begin{itemize}
     \item A novel SciML method that recasts the No-Three-In-Line problem as continuous energy minimisation and solves it via gradient flow on commodity GPU hardware without symmetry pruning.

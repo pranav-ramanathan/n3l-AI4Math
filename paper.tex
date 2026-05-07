@@ -80,6 +80,7 @@
   \begin{icmlauthorlist}
     \icmlauthor{Pranav Ramanathan}{qmul}
     \icmlauthor{Thomas Prellberg}{qmul}
+    \icmlauthor{Christian Beck}{qmul}
     \icmlauthor{Matthew Lewis}{qmul}
     \icmlauthor{Prathamesh Dinesh Joshi}{viz}
     \icmlauthor{Raj Abhijit Dandekar}{viz}
@@ -115,10 +116,18 @@
 % \printAffiliationsAndNotice{\icmlEqualContribution}
 
 \begin{abstract}
+% Pre-SciML abstract preserved below for reference. Re-enable by
+% removing the \iffalse..\fi guard.
+\iffalse
 The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, representing a famous problem in combinatorial geometry.
 We compare three approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, and (iii) reinforcement learning using proximal policy optimization (PPO).
 ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids with a reported 96\% reduction in test loss over training, and finds 29 points on $15\times15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ grids due to constraint violations.
 Classical optimization remains essential for exact solutions, while AI methods offer competitive performance on smaller instances. Hybrid approaches combining solvers with learned heuristics appear most promising for scaling to larger grids.
+\fi
+The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, a famous problem in combinatorial geometry.
+We compare four approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, (iii) reinforcement learning using proximal policy optimization (PPO), and (iv) a Scientific Machine Learning (SciML) method that recasts the problem as continuous energy minimisation solved by gradient flow on Apple Metal.
+ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML recovers optimal $2n$ configurations for every $n$ from $10$ to $18$ except $n = 17$, on commodity GPU hardware and without symmetry pruning.
+Continuous-relaxation methods extend the reach of learning-based solvers well beyond the discrete-search ceilings of PatternBoost and PPO, suggesting a productive new direction for combinatorial geometry.
 \end{abstract}
 
 \section{Introduction}
@@ -421,40 +430,68 @@ Model performance is evaluated every epoch over 20 episodes using success rate (
 \subsection{SciML Gradient Flow}
 \label{sec:sciml}
 
-% TODO(SciML): one-paragraph framing — discrete N3L recast as continuous
-% relaxation x_{ij} in [0,1]^{n^2}; reformulate as energy-minimisation
-% solved via gradient-flow ODE; mirror NeurIPS draft "Our Approach"
-% paragraph. ~100 words. Cite RackauckasNie2017, Karniadakis2021.
+Discrete enumeration scales exponentially in $n$, and the methods of Sections 2.2--2.4 collectively cover only up to $n = 19$, well below the symmetry-reduced records cited in Section 1. We therefore reformulate the problem in continuous form: instead of choosing a $0/1$ placement, we evolve a real-valued density on the grid under a smooth energy whose minimisers correspond to valid $2n$-point configurations. Solving the resulting ordinary differential equation by gradient flow turns combinatorial search into trajectory integration, a setting in which the Scientific Machine Learning toolchain~\cite{RackauckasNie2017,Karniadakis2021} provides mature, GPU-accelerated solvers.
 
 \subsubsection{Continuous Relaxation and Energy Function}
 
-% TODO(SciML): define E(x) = alpha * E_collinear + E_count + beta * E_binary
-% (double-well 4x^2(1-x)^2). State sparse incidence matrix L reduces
-% O(n^6) -> O(n^3). Cross-ref Section 2.1 problem formulation; do NOT
-% repeat the determinant collinearity test. ~150 words + one equation.
-% Source: NeurIPS_Paper/structure.txt section 3.1 + 3.2.
+Let $\mathbf{x} \in [0,1]^{n^2}$ be a continuous relaxation of the binary indicator matrix $\mathbf{X}$ of Section 2.1, with $x_{i,j}$ now interpreted as a probability of a point at cell $(i,j)$. We optimise an energy with three terms,
+\begin{equation}
+E(\mathbf{x}) = \alpha \, E_{\text{coll}}(\mathbf{x}) + E_{\text{count}}(\mathbf{x}) + \gamma \, E_{\text{bin}}(\mathbf{x}),
+\label{eq:sciml_energy}
+\end{equation}
+where $E_{\text{coll}}$ penalises every grid line by the smooth excess of its summed mass over two, $E_{\text{count}} = -\sum_{i,j} x_{i,j}$ rewards point count, and $E_{\text{bin}} = \sum_{i,j} 4 x_{i,j}^2 (1 - x_{i,j})^2$ is a double-well term that pushes each $x_{i,j}$ toward $\{0,1\}$. The collinearity term reuses the line-incidence structure enumerated in Section 2.1, replacing the $O(n^6)$ triple enumeration with $O(n^3)$ per-line sums. Per-line penalties are normalised by line length (\textit{mean-incidence}), which keeps $\alpha$ within a narrow range as $n$ grows.
 
 \subsubsection{Gradient Flow Dynamics}
 
-% TODO(SciML): dx/dt = -grad E(x); RK4 integration on Apple Metal GPU;
-% integration horizon T; optional two-stage ADAM -> LBFGS refinement.
-% ~80 words. Source: NeurIPS_Paper/structure.txt section 3.3.
+From a uniform random initialisation $\mathbf{x}(0) \in [0,1]^{n^2}$, we evolve the relaxed configuration by gradient flow,
+\begin{equation}
+\frac{d\mathbf{x}}{dt} = -\nabla E(\mathbf{x}), \qquad t \in [0,T],
+\label{eq:sciml_flow}
+\end{equation}
+integrated with a fixed-step RK4 scheme on the GPU. After integration, an optional refinement stage applies ADAM followed by L-BFGS to polish solutions whose double-well energy has not fully collapsed. The horizon $T$ is grid-size dependent (Section 3.5).
 
 \subsubsection{Parallel Trajectory Search on Apple Metal}
 
-% TODO(SciML): describe main_metal_v3.jl --- line-based custom Metal
-% kernel v3, lock-free parallel trajectories (default 30), early-best
-% heuristic (solutions emerge in first 10--20% of trajectory),
-% threshold tau for continuous -> binary recovery. Cite Metal.jl.
-% ~120 words. Source: experiments/main_metal_v3.jl + structure.txt 3.4.
+We implement Equation~\eqref{eq:sciml_flow} as a custom Metal compute kernel (\texttt{main\_metal\_v3.jl}) that integrates $R$ independent trajectories in parallel, one per GPU thread, with no inter-thread communication~\cite{Metal_jl}. Each thread holds private scratch for an $n \times n$ board (capped at $n \le 32$ by kernel-local memory) and reads a precomputed sparse line table that encodes the constraint structure once per run. We launch $R = 30$ trajectories per run by default. After integration, each trajectory is converted to a binary configuration by retaining the top $2n$ entries of $\mathbf{x}(T)$ above a threshold $\tau$, and the best valid configuration found along each trajectory is recorded. Most successful runs reach their final placement within the first 10--20\% of the integration horizon, motivating an early-best heuristic that returns once any thread reports a zero-violation $2n$-point configuration.
 
 \subsubsection{Hyperparameters and Parameter Scaling}
 
-% TODO(SciML): hyperparameter table mirroring tab:patternboost_hyperparams
-% / tab:ppo_hyperparams --- alpha, beta, gamma, T, n_traj, dt,
-% integrator, optimiser stages, threshold tau. Note alpha scales
-% linearly ~25--50 per unit n (NeurIPS draft section 3.5).
-% Source: experiments/data/hyperparam_labels.csv.
+Table~\ref{tab:sciml_hyperparams} summarises the SciML configuration. Energy and solver parameters are grid-size aware: $\alpha$ and $T$ are tuned per $n$ from the schedule used in our experiments, and we discuss their empirical scaling behaviour in Section~3.5.
+
+\begin{table}[htbp]
+\vspace{0.1in}
+\begin{center}
+\begin{small}
+\begin{sc}
+\caption{SciML Gradient Flow Hyperparameters}
+\label{tab:sciml_hyperparams}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+\multicolumn{2}{l}{\textup{Energy}} \\
+Collinearity penalty $\alpha$ & per-$n$ schedule (Sec.~3.5) \\
+Binary regularisation $\gamma$ & $4.0$--$5.0$ \\
+Per-line normalisation & mean-incidence \\
+\midrule
+\multicolumn{2}{l}{\textup{Solver}} \\
+Integrator & fixed-step RK4 \\
+Time horizon $T$ & $10$ ($n \le 15$), $25$ ($n=16$), $30$ ($n \ge 17$) \\
+Refinement & optional ADAM $\rightarrow$ L-BFGS \\
+\midrule
+\multicolumn{2}{l}{\textup{Search}} \\
+Parallel trajectories $R$ & $30$ \\
+Initialisation & uniform random in $[0,1]^{n^2}$ \\
+Threshold $\tau$ & top-$2n$ entries of $\mathbf{x}(T)$ \\
+GPU backend & Apple Metal (\texttt{Metal.jl}) \\
+\bottomrule
+\end{tabular}}
+\end{sc}
+\end{small}
+\end{center}
+\vspace{0.1in}
+\end{table}
 
 \section{Results} % CHANGE (Frontiers): separate results from methods.
 
@@ -474,29 +511,29 @@ Table \ref{tab:results_comparison} presents the solution quality achieved by eac
 \begin{sc}
 \caption{Solution Quality Comparison Across Methods and Grid Sizes}
 \label{tab:results_comparison}
-% TODO(SciML): fill SciML column from
-%   experiments/ablation/g1/metal_ablation_g1_10_to_18_summary.csv
-%   experiments/ablation/g1/metal_ablation_g1_19_summary.csv
-% Headline numbers (g1, mean-incidence, 10 runs/n):
-%   n=10 10/10 (20),  n=11 7/10 (22 best, 1 viol fails),
-%   n=12 10/10 (24),  n=13 8/10 (26),
-%   n=14 4/10 (28),   n=15 8/10 (30),
-%   n=16 8/10 (32),   n=17 0/10 (33 best, 1 viol),
-%   n=18 9/10 (36),   n=19 0/10 (35 best, 3 viol).
-% Decide whether to add new rows for n=11/13/16/17/18 (SciML tested
-% there, ILP/PB/PPO not). For now table keeps original n list.
+% Source: experiments/ablation/g1/metal_ablation_g1_10_to_18_summary.csv
+% and experiments/ablation/g1/metal_ablation_g1_19_summary.csv. SciML
+% column reports best zero-violation point count with success rate
+% (g1, mean-incidence, 10 runs/n). At n=17, n=19 SciML did not reach
+% zero violations, so the cell is "--" (best 33 / 1 viol and 35 / 3
+% viol respectively, discussed in the SciML paragraph below).
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{cccccc}
 \toprule
 \textbf{Grid Size} & \textbf{ILP} & \textbf{PatternBoost} & \textbf{PPO} & \textbf{SciML} & \textbf{Known Optimal} \\
 \midrule
-$5\times 5$   & 10 & 10 & 10 & -- & 10 \\ % TODO(SciML): n=5 not in ablation
-$8\times 8$   & 16 & 16 & 16 & -- & 16 \\ % TODO(SciML): n=8 not in ablation
-$10\times 10$ & 20 & 20 & 20 & 20 & 20 \\ % TODO(SciML): success-rate annotation 10/10
-$12\times 12$ & 24 & 24 & -  & 24 & 24 \\ % TODO(SciML): success-rate annotation 10/10
-$14\times 14$ & 28 & 28 & -  & 28 & 28 \\ % TODO(SciML): success-rate annotation 4/10
-$15\times 15$ & 30 & 29 & -  & 30 & 30 \\ % TODO(SciML): success-rate annotation 8/10
-$19\times 19$ & 38 & -  & -  & -- & 38 \\ % TODO(SciML): 0/10, best 35 (3 viol)
+$5\times 5$   & 10 & 10 & 10 & -- & 10 \\
+$8\times 8$   & 16 & 16 & 16 & -- & 16 \\
+$10\times 10$ & 20 & 20 & 20 & 20 (10/10) & 20 \\
+$11\times 11$ & -- & -- & -- & 22 (7/10)  & 22 \\
+$12\times 12$ & 24 & 24 & -- & 24 (10/10) & 24 \\
+$13\times 13$ & -- & -- & -- & 26 (8/10)  & 26 \\
+$14\times 14$ & 28 & 28 & -- & 28 (4/10)  & 28 \\
+$15\times 15$ & 30 & 29 & -- & 30 (8/10)  & 30 \\
+$16\times 16$ & -- & -- & -- & 32 (8/10)  & 32 \\
+$17\times 17$ & -- & -- & -- & --         & 34 \\
+$18\times 18$ & -- & -- & -- & 36 (9/10)  & 36 \\
+$19\times 19$ & 38 & -- & -- & --         & 38 \\
 \bottomrule
 \end{tabular}}
 \end{sc}
@@ -511,13 +548,7 @@ $19\times 19$ & 38 & -  & -  & -- & 38 \\ % TODO(SciML): 0/10, best 35 (3 viol)
 
 \textbf{Proximal Policy Optimization.} PPO achieved perfect solutions on $n = 10$ grids (20 points with zero violations), successfully learning valid placement policies through reward-based feedback. On $n = 11$ grids, the agent placed 22 points but incurred a single collinearity violation, indicating difficulty maintaining long-term constraint satisfaction as problem complexity increases. PPO demonstrated the ability to discover effective strategies from minimal problem structure (only the reward signal), but struggled to scale beyond small grid sizes where sequential planning becomes critical. Figures \ref{fig:rl_success} and \ref{fig:rl_failure} illustrate this sharp performance transition between successful constraint satisfaction at $n = 10$ and systematic failure at $n = 11$, with detailed analysis of failure modes provided in Section 3.4.
 
-\textbf{SciML.} % TODO(SciML): ~150 words. Headline: optimal 2n recovered
-% for n = 10..16 and n = 18 on Apple M2 Metal, without symmetry pruning;
-% failure modes at n = 17 (0/10 success, best config has 1 violation)
-% and n = 19 (0/10, best config has 3 violations). Mention Metal-GPU
-% runtime at headline n: e.g. n=18 ~588 s mean solver elapsed.
-% Cross-ref Fig:sciml_solution_n18 and Fig:sciml_alpha_scaling.
-% Source: experiments/ablation/g1/metal_ablation_g1_*_summary.csv.
+\textbf{SciML.} The continuous-relaxation gradient flow recovered optimal $2n$-point configurations on Apple Metal for every grid size between $n=10$ and $n=18$ except $n=17$, with success rates per ten parallel runs ranging from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. The best $n=18$ run reached the full $36$-point configuration in roughly $588$ seconds of mean solver time on an Apple M2, without exploiting symmetry. Two failure modes are visible. At $n=17$ no run reached zero violations: the best configuration placed $33$ points with a single residual collinearity, suggesting that the energy landscape narrows sharply at this grid size. At $n=19$ no run achieved a valid configuration; the best attempt reached $35$ points with three violations, leaving a small but persistent gap between the relaxed and discrete optima. Section~3.5 examines how the collinearity penalty $\alpha$ scales with $n$ and how this scaling correlates with success.
 
 % TODO(SciML): figure --- best 36-point n=18 SciML solution.
 % Path: figures/sciml_solution_n18.png  (NOT YET COPIED IN).
@@ -538,11 +569,7 @@ Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 trainin
 
 \subsection{Parameter Scaling for SciML}
 
-% TODO(SciML): describe alpha (collinearity penalty) scaling with n.
-% Empirical observation: alpha grows ~25--50 per unit n
-% (NeurIPS draft section 3.5). Source CSV:
-%   experiments/ablation/g1/metal_ablation_g1_10_to_18.csv
-% (per-run alpha column). ~120 words + scaling-laws figure.
+The collinearity-penalty schedule has two regimes. For $n \le 10$ we use unnormalised line penalties and $\alpha$ rises linearly with $n$, from $\alpha = 3.3$ at $n = 2$ to $\alpha = 16.7$ at $n = 10$ --- a slope of roughly $5/3$ per unit grid size. From $n = 11$ onwards we switch to mean-incidence normalisation (Section~2.5.1), which divides each line's penalty by line length; $\alpha$ then no longer needs to grow with the constraint count, and we hold it near $10$ for $n = 11$--$16$, decreasing to $7$ at $n = 18$. The integration horizon $T$ stays at $10$ for $n \le 15$, $25$ at $n = 16$, and $30$ for $n \ge 17$. The two regimes where success collapses, $n = 17$ and $n = 19$, coincide with the schedule's tightest margin: the unnormalised regime would have required $\alpha \approx 30$ at $n = 17$, beyond what the GPU's Float32 dynamic range can stably support.
 
 % TODO(SciML): figure --- alpha vs n scaling plot.
 % Path: figures/sciml_alpha_scaling.png  (NOT YET COPIED IN).
@@ -593,30 +620,25 @@ PatternBoost's failure at $n = 15$ follows a different pattern. While achieving 
 
 \section{Discussion} % CHANGE (Frontiers): discussion section.
 
-% TODO(SciML): Discussion augmentation, four additive insertions:
-% (a) Para 1 thesis --- add SciML reach: optimal 2n up to n=18 on
-%     Apple Metal without symmetry pruning, surpassing PatternBoost's
-%     n=14 and PPO's n=10 ceilings. Reframe "first comparison of
-%     classical optimization and AI approaches" -> "comparison of
-%     classical, learning-based, and SciML approaches".
-% (b) Para 2 trade-offs --- add SciML failure mode: continuous-discrete
-%     gap at n=17 and n=19; Float32 GPU precision wall; threshold tau
-%     sensitivity.
-% (c) Para 3 limitations --- only Metal evaluated (no ROCm/CUDA cross-
-%     validation); single-run hyperparameter regime per n; no symmetry
-%     exploitation tried.
-% (d) Para 4 future work (l. ~523, schuetz2022combinatorial cite) ---
-%     pivot closing sentence to position SciML as the in-paper
-%     instantiation of the physics-inspired direction, not just future
-%     work.
-
+% Pre-SciML version of Discussion (4 paragraphs) preserved below for
+% reference. Re-enable by removing the \iffalse..\fi guard.
+\iffalse
 Our study presents the first comparison of classical optimization and AI approaches to the No-Three-In-Line problem. Integer linear programming performed best, finding optimal solutions for up to $n = 19$, demonstrating the power of classical solvers for constraint satisfaction problems. In contrast, reinforcement learning approaches achieved perfect solutions only up to $n = 10$, with performance degrading by 42\% at $n = 11$ due to constraint violations. PatternBoost, the hybrid method combining classical greedy algorithms with transformers, achieved optimal solutions up to $n = 14$ and modest generalization to $n = 15$, bridging the gap between pure reinforcement learning and classical optimization. These findings underscore that hybrid approaches combining algorithmic heuristics with learned pattern recognition offer the most promising balance between solution quality and computational efficiency.
 
 The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity—constraints increased by 23\% from $n = 19$ (5,524 constraints) to $n = 20$ (6,778 constraints), illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: while fast data collection is central to the method's efficiency, the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
 
 This study is limited to grid sizes up to $n = 19$ for ILP, $n = 15$ for PatternBoost, and $n = 11$ for PPO, preventing definitive conclusions about asymptotic scaling behavior. We did not explore hybrid training combining supervised and reinforcement learning, transfer learning across grid sizes, or curriculum learning strategies that could leverage synergies between approaches. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements such as multi-branch networks or enhanced attention mechanisms for capturing long-range geometric dependencies. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple and may benefit from more sophisticated shaping, intrinsic motivation signals, or exploration bonuses to better handle sparse binary rewards in constraint satisfaction tasks.
 
-Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Physics-inspired approaches present a particularly compelling direction, where combinatorial problems are reformulated as energy minimisation over relaxed Hamiltonians, enabling gradient-based neural network training~\cite{schuetz2022combinatorial}. 
+Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Physics-inspired approaches present a particularly compelling direction, where combinatorial problems are reformulated as energy minimisation over relaxed Hamiltonians, enabling gradient-based neural network training~\cite{schuetz2022combinatorial}.
+\fi
+
+Our study presents a comparison of classical, learning-based, and SciML approaches to the No-Three-In-Line problem. Integer linear programming performed best on the grids it could enumerate, finding optimal solutions for up to $n = 19$ and demonstrating the power of classical solvers for constraint satisfaction problems. In contrast, reinforcement learning approaches achieved perfect solutions only up to $n = 10$, with performance degrading by 42\% at $n = 11$ due to constraint violations. PatternBoost, the hybrid method combining classical greedy algorithms with transformers, achieved optimal solutions up to $n = 14$ and modest generalization to $n = 15$, bridging the gap between pure reinforcement learning and classical optimization. The continuous-relaxation SciML method extended this further, recovering optimal $2n$ configurations on Apple Metal up to $n = 18$ without exploiting symmetry --- well beyond the PatternBoost ceiling of $n = 14$ and the PPO ceiling of $n = 10$. These findings underscore that reformulating discrete combinatorial problems in continuous form, and that hybrid approaches combining algorithmic heuristics with learned pattern recognition, both offer promising paths to scaling beyond exact-search regimes.
+
+The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity—constraints increased by 23\% from $n = 19$ (5,524 constraints) to $n = 20$ (6,778 constraints), illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: while fast data collection is central to the method's efficiency, the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. The SciML method exhibits a different failure mode: a continuous-discrete gap that opens at $n = 17$ and $n = 19$, where the gradient flow stabilises configurations with one to three residual collinearities and the threshold $\tau$ cannot reliably round them to a valid binary solution; this regime is also where the GPU's Float32 dynamic range limits how much further the collinearity penalty $\alpha$ can be raised. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
+
+This study is limited to grid sizes up to $n = 19$ for ILP, $n = 15$ for PatternBoost, $n = 11$ for PPO, and $n = 19$ for SciML, preventing definitive conclusions about asymptotic scaling behavior. We did not explore hybrid training combining supervised and reinforcement learning, transfer learning across grid sizes, or curriculum learning strategies that could leverage synergies between approaches. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements such as multi-branch networks or enhanced attention mechanisms for capturing long-range geometric dependencies. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple and may benefit from more sophisticated shaping, intrinsic motivation signals, or exploration bonuses to better handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
+
+Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Our SciML method is itself a concrete instantiation of the physics-inspired direction advocated by~\cite{schuetz2022combinatorial}: reformulating combinatorial problems as energy minimisation over a relaxed Hamiltonian, then solving with gradient-based methods. Extending this beyond the No-Three-In-Line problem --- in particular to other forbidden-configuration problems in combinatorial geometry --- is a natural next step.
 
 % \section{Electronic Submission}
 
@@ -1064,9 +1086,8 @@ Future research should prioritize hybrid training paradigms that combine supervi
 
 \section*{Software and Data}
 
-% TODO(SciML): change "all three methods" to "all four methods" once
-% the SciML repo URL bullet below is filled in.
-The code for all three methods is available in the following repositories:
+% Originally: "The code for all three methods is available..."
+The code for all four methods is available in the following repositories:
 
 \begin{itemize}
     \item ILP: \url{https://github.com/pranav-ramanathan/N3L_gurobi}

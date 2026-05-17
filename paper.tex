@@ -132,7 +132,7 @@ Continuous-relaxation methods extend the reach of learning-based solvers well be
 
 \section{Introduction}
 
-We consider the No-Three-In-Line problem \cite{GuyKelly1968}: What is the maximum number of points that can be placed on an $n \times n$ grid such that no three are collinear? Figure \ref{fig:problem_intro} illustrates an optimal solution for a $10 \times 10$ grid, achieving the maximum of 20 points with no three collinear. This is the first systematic comparison of classical and AI-driven search paradigms for the No-Three-In-Line problem.
+We consider the No-Three-In-Line problem \cite{GuyKelly1968}: What is the maximum number of points that can be placed on an $n \times n$ grid such that no three are collinear? Figure \ref{fig:problem_intro} illustrates an optimal solution for a $10 \times 10$ grid, achieving the maximum of 20 points with no three collinear. To our knowledge, this is the first systematic comparison of classical and AI-driven search paradigms for the No-Three-In-Line problem.
 
 \begin{figure}[htbp]
 \centering
@@ -152,12 +152,13 @@ We compare four approaches: integer linear programming using the Gurobi solver, 
 
 \textbf{Our contributions are:}
 \begin{itemize}
-    \item \textbf{A comparative study.} The first systematic comparison of four search paradigms: ILP, learned pattern search, reinforcement learning, and SciML continuous relaxation, studying where each paradigm succeeds and how it fails.
+    \item \textbf{A comparative study.} To our knowledge, the first systematic comparison of four search paradigms: ILP, learned pattern search, reinforcement learning, and SciML continuous relaxation, studying where each paradigm succeeds and how it fails.
     \item \textbf{A SciML method.} A novel SciML method that recasts the No-Three-In-Line problem as continuous energy minimisation and solves it via gradient flow on commodity GPU hardware without symmetry pruning.
-    \item \textbf{PatternBoost on collinearity.} The first application of PatternBoost \cite{Charton2024} to the No-Three-In-Line problem.
-    \item \textbf{PPO with action masking.} The first application of a PPO reinforcement-learning agent \cite{Schulman2017} with action masking.
+    \item \textbf{PatternBoost on collinearity.} To our knowledge, the first application of PatternBoost \cite{Charton2024} to the No-Three-In-Line problem.
+    \item \textbf{PPO with action masking.} To our knowledge, the first application of a PPO reinforcement-learning agent \cite{Schulman2017} with action masking to the No-Three-In-Line problem.
 \end{itemize}
 
+\section{Methods}
 \subsection{Problem Formulation}
 
 The No-Three-In-Line problem is defined on an $n \times n$ discrete grid, where each cell $(i,j)$ with $0 \leq i,j < n$ represents a potential point placement. We represent a configuration as a binary matrix $\mathbf{X} \in \{0,1\}^{n \times n}$, where $x_{i,j} = 1$ indicates a point is placed at position $(i,j)$, and $x_{i,j} = 0$ indicates an empty cell.
@@ -237,7 +238,7 @@ We apply the PatternBoost methodology \cite{Charton2024} to the No-Three-In-Line
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\linewidth]{transformer.png}
+	\includegraphics[width=0.85\linewidth]{transformer.png}
 	\caption{PatternBoost transformer: 4 layers, 4 heads, dimension 64, with residual connections.}
 	\label{fig:transformer_architecture}
 \end{figure}
@@ -385,7 +386,7 @@ The policy network uses a multi-layer perceptron (MLP) with two hidden layers of
 
 \begin{figure}[H]
 		\centering
-		\includegraphics[width=\linewidth]{RL.png}
+		\includegraphics[width=0.85\linewidth]{RL.png}
 		\caption{PPO actor-critic with shared $512\times2$ MLP backbone splitting into policy and value heads.}
 		\label{fig:ppo_architecture}
 		\end{figure}
@@ -492,7 +493,7 @@ GPU backend & Apple Metal (\texttt{Metal.jl}) \\
 \vspace{0.1in}
 \end{table}
 
-\section{Results} % CHANGE (Frontiers): separate results from methods.
+\section{Results}
 
 
 \subsection{Experimental Setup}
@@ -561,7 +562,7 @@ Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 trainin
 
 \begin{figure}[htbp]
 		\centering
-		\includegraphics[width=\linewidth]{loss_plot.png}
+		\includegraphics[width=0.85\linewidth]{loss_plot.png}
 		\caption{PatternBoost training and test loss over 15,000 steps.}
 		\label{fig:patternboost_loss}
 \end{figure}
@@ -586,38 +587,9 @@ Figures \ref{fig:rl_success} and \ref{fig:rl_failure} illustrate PPO's performan
 
 PatternBoost's failure at $n = 15$ follows a different pattern. While achieving 29 points on $15 \times 15$ grids, one point short of the known optimum of 30, the method demonstrates graceful degradation rather than catastrophic failure. The configurations discovered remain valid (zero violations) but fail to reach optimality, suggesting that the transformer's learned patterns generalize approximately but not perfectly to larger grids. Figure \ref{fig:patternboost_n14} shows PatternBoost's optimal $14 \times 14$ solution achieving 28 points, demonstrating the geometric patterns successfully learned through iterative refinement. Figure \ref{fig:ilp_n19} shows ILP's optimal $19 \times 19$ solution for comparison, illustrating the increased complexity that AI methods must learn to replicate at larger scales.
 
-\begin{figure}[htbp]
-		\centering
-		\includegraphics[width=\linewidth]{PatternBoost_n14.png}
-		\caption{PatternBoost optimal solution on $14 \times 14$ grid achieving 28 points, demonstrating successful pattern learning from greedy-generated training data.}
-		\label{fig:patternboost_n14}
-\end{figure}
+% Grid solution figures moved to Appendix (Figures~\ref{fig:patternboost_n14}, \ref{fig:rl_failure}, \ref{fig:rl_success}, \ref{fig:ilp_n19}).
 
-\begin{figure}[htbp]
-	\centering
-	\begin{minipage}{0.48\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{best_model_final_state_n11.png}
-		\caption{PPO failure on $11 \times 11$ grid: 22 points with 1 violation.}
-		\label{fig:rl_failure}
-	\end{minipage}
-	\hfill
-	\begin{minipage}{0.48\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{best_model_final_state_n10.png}
-		\caption{PPO success on $10 \times 10$ grid: 20 points with 0 violations.}
-		\label{fig:rl_success}
-	\end{minipage}
-\end{figure}
-
-\begin{figure}[htbp]
-		\centering
-		\includegraphics[width=\linewidth]{no_three_in_line_n19.png}
-		\caption{ILP optimal solution on $19 \times 19$ grid achieving 38 points.}
-		\label{fig:ilp_n19}
-\end{figure}
-
-\section{Discussion} % CHANGE (Frontiers): discussion section.
+\section{Discussion}
 
 % Pre-SciML version of Discussion (4 paragraphs) preserved below for
 % reference. Re-enable by removing the \iffalse..\fi guard.
@@ -631,13 +603,13 @@ This study is limited to grid sizes up to $n = 19$ for ILP, $n = 15$ for Pattern
 Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Physics-inspired approaches present a particularly compelling direction, where combinatorial problems are reformulated as energy minimisation over relaxed Hamiltonians, enabling gradient-based neural network training~\cite{schuetz2022combinatorial}.
 \fi
 
-Our study presents a comparison of classical, learning-based, and SciML approaches to the No-Three-In-Line problem. Integer linear programming performed best on the grids it could enumerate, finding optimal solutions for up to $n = 19$ and demonstrating the power of classical solvers for constraint satisfaction problems. In contrast, reinforcement learning approaches achieved perfect solutions only up to $n = 10$, with performance degrading by 42\% at $n = 11$ due to constraint violations. PatternBoost, the hybrid method combining classical greedy algorithms with transformers, achieved optimal solutions up to $n = 14$ and modest generalization to $n = 15$, bridging the gap between pure reinforcement learning and classical optimization. The continuous-relaxation SciML method extended this further, recovering optimal $2n$ configurations on Apple Metal up to $n = 18$ without exploiting symmetry --- well beyond the PatternBoost ceiling of $n = 14$ and the PPO ceiling of $n = 10$. These findings underscore that reformulating discrete combinatorial problems in continuous form, and that hybrid approaches combining algorithmic heuristics with learned pattern recognition, both offer promising paths to scaling beyond exact-search regimes.
+Our study presents a comparison of classical, learning-based, and SciML approaches to the No-Three-In-Line problem. These findings underscore that reformulating discrete combinatorial problems in continuous form, and that hybrid approaches combining algorithmic heuristics with learned pattern recognition, both offer promising paths to scaling beyond exact-search regimes.
 
-The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity—constraints increased by 23\% from $n = 19$ (5,524 constraints) to $n = 20$ (6,778 constraints), illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: while fast data collection is central to the method's efficiency, the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. The SciML method exhibits a different failure mode: a continuous-discrete gap that opens at $n = 17$ and $n = 19$, where the gradient flow stabilises configurations with one to three residual collinearities and the threshold $\tau$ cannot reliably round them to a valid binary solution; this regime is also where the GPU's Float32 dynamic range limits how much further the collinearity penalty $\alpha$ can be raised. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
+The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity, illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. The SciML method exhibits a different failure mode: a continuous-discrete gap that opens at $n = 17$ and $n = 19$, where the gradient flow stabilises configurations with one to three residual collinearities and the threshold $\tau$ cannot reliably round them to a valid binary solution; this regime is also where the GPU's Float32 dynamic range limits how much further the collinearity penalty $\alpha$ can be raised. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
 
-This study is limited to grid sizes up to $n = 19$ for ILP, $n = 15$ for PatternBoost, $n = 11$ for PPO, and $n = 19$ for SciML, preventing definitive conclusions about asymptotic scaling behavior. We did not explore hybrid training combining supervised and reinforcement learning, transfer learning across grid sizes, or curriculum learning strategies that could leverage synergies between approaches. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements such as multi-branch networks or enhanced attention mechanisms for capturing long-range geometric dependencies. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple and may benefit from more sophisticated shaping, intrinsic motivation signals, or exploration bonuses to better handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
+Each method was evaluated up to the grid size at which it could no longer reliably produce valid solutions, with computational cost as the primary limiting factor for ILP. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple, limiting its ability to handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
 
-Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Our SciML method is itself a concrete instantiation of the physics-inspired direction advocated by~\cite{schuetz2022combinatorial}: reformulating combinatorial problems as energy minimisation over a relaxed Hamiltonian, then solving with gradient-based methods. Extending this beyond the No-Three-In-Line problem --- in particular to other forbidden-configuration problems in combinatorial geometry --- is a natural next step.
+Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Extending the SciML approach beyond the No-Three-In-Line problem --- in particular to other forbidden-configuration problems in combinatorial geometry --- is a natural next step.
 
 % \section{Electronic Submission}
 
@@ -1086,14 +1058,11 @@ Future research should prioritize hybrid training paradigms that combine supervi
 \section*{Software and Data}
 
 % Originally: "The code for all three methods is available..."
-The code for all four methods is available in the following repositories:
-
-\begin{itemize}
-    \item ILP: \url{https://github.com/pranav-ramanathan/N3L_gurobi}
-    \item PatternBoost: \url{https://github.com/pranav-ramanathan/N3L_PatternBoost}
-    \item RL: \url{https://github.com/pranav-ramanathan/N3L_RL}
-    \item SciML: % TODO(SciML): public repo URL or "available on request".
-\end{itemize}
+% Original URLs removed for blind review (contained author identity).
+% To restore: ILP github.com/pranav-ramanathan/N3L_gurobi,
+%             PatternBoost github.com/pranav-ramanathan/N3L_PatternBoost,
+%             RL github.com/pranav-ramanathan/N3L_RL
+Code for all four methods will be made publicly available upon acceptance.
 
 % If a paper is accepted, we strongly encourage the publication of software and
 % data with the camera-ready version of the paper whenever appropriate. This can
@@ -1148,14 +1117,38 @@ for ethics review.
 \newpage
 \appendix
 \onecolumn
-\section{You \emph{can} have an appendix here.}
+\section{Solution Visualisations}
 
-You can have as much text here as you want. The main body must be at most $8$
-pages long. For the final version, one more page can be added. If you want, you
-can use an appendix like this one.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.55\linewidth]{PatternBoost_n14.png}
+    \caption{PatternBoost optimal solution on $14 \times 14$ grid achieving 28 points.}
+    \label{fig:patternboost_n14}
+\end{figure}
 
-The $\mathtt{\backslash onecolumn}$ command above can be kept in place if you
-prefer a one-column appendix, or can be removed if you prefer a two-column
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{best_model_final_state_n11.png}
+        \caption{PPO failure on $11 \times 11$ grid: 22 points with 1 violation.}
+        \label{fig:rl_failure}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{best_model_final_state_n10.png}
+        \caption{PPO success on $10 \times 10$ grid: 20 points with 0 violations.}
+        \label{fig:rl_success}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.55\linewidth]{no_three_in_line_n19.png}
+    \caption{ILP optimal solution on $19 \times 19$ grid achieving 38 points.}
+    \label{fig:ilp_n19}
+\end{figure}
 appendix.  Apart from this possible change, the style (font size, spacing,
 margins, page numbering, etc.) should be kept the same as the main body.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

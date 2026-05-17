@@ -448,11 +448,11 @@ From a uniform random initialisation $\mathbf{x}(0) \in [0,1]^{n^2}$, we evolve 
 \frac{d\mathbf{x}}{dt} = -\nabla E(\mathbf{x}), \qquad t \in [0,T],
 \label{eq:sciml_flow}
 \end{equation}
-integrated with a fixed-step RK4 scheme on the GPU. After integration, an optional refinement stage applies ADAM followed by L-BFGS to polish solutions whose double-well energy has not fully collapsed. The horizon $T$ is grid-size dependent (Section 3.5).
+integrated with a fixed-step RK4 scheme on the GPU. The horizon $T$ is grid-size dependent (Section 3.5).
 
 \subsubsection{Parallel Trajectory Search on Apple Metal}
 
-We implement Equation~\eqref{eq:sciml_flow} as a custom Metal compute kernel (\texttt{main\_metal\_v3.jl}) that integrates $R$ independent trajectories in parallel, one per GPU thread, with no inter-thread communication~\cite{Metal_jl}. Each thread holds private scratch for an $n \times n$ board (capped at $n \le 32$ by kernel-local memory) and reads a precomputed sparse line table that encodes the constraint structure once per run. We launch $R = 30$ trajectories per run by default. After integration, each trajectory is converted to a binary configuration by retaining the top $2n$ entries of $\mathbf{x}(T)$ above a threshold $\tau$, and the best valid configuration found along each trajectory is recorded. Most successful runs reach their final placement within the first 10--20\% of the integration horizon, motivating an early-best heuristic that returns once any thread reports a zero-violation $2n$-point configuration.
+We implement Equation~\eqref{eq:sciml_flow} as a custom Metal compute kernel that integrates $R$ independent trajectories in parallel, one per GPU thread, with no inter-thread communication~\cite{Metal_jl}. Each thread holds private scratch for an $n \times n$ board (capped at $n \le 32$ by kernel-local memory) and reads a precomputed sparse line table that encodes the constraint structure once per run. We use $R = 5000$ trajectories per run. After integration, each trajectory is converted to a binary configuration by retaining the top $2n$ entries of $\mathbf{x}(T)$ above a threshold $\tau$, and the best valid configuration found along each trajectory is recorded. Most successful runs reach their final placement within the first 10--20\% of the integration horizon, motivating an early-best heuristic that returns once any thread reports a zero-violation $2n$-point configuration.
 
 \subsubsection{Hyperparameters and Parameter Scaling}
 
@@ -515,8 +515,9 @@ Table \ref{tab:results_comparison} presents the solution quality achieved by eac
 % and experiments/ablation/g1/metal_ablation_g1_19_summary.csv. SciML
 % column reports best zero-violation point count with success rate
 % (g1, mean-incidence, 10 runs/n). At n=17, n=19 SciML did not reach
-% zero violations, so the cell is "--" (best 33 / 1 viol and 35 / 3
-% viol respectively, discussed in the SciML paragraph below).
+% zero violations in the 10-run ablation, so the cell is "--" (n=17:
+% best single-seed 34 pts / 0 viol but 0/10 in ablation; n=19: best
+% 35 pts / 3 viol; discussed in the SciML paragraph below).
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{cccccc}
 \toprule
@@ -540,6 +541,7 @@ $19\times 19$ & 38 & -- & -- & --         & 38 \\
 \end{small}
 \end{center}
 \vspace{0.1in}
+{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration.}
 \end{table}
 
 \textbf{Integer Linear Programming.} ILP achieved provably optimal solutions up to $n = 19$ (38 points), providing the strongest baseline across all tested grid sizes.
@@ -548,7 +550,7 @@ $19\times 19$ & 38 & -- & -- & --         & 38 \\
 
 \textbf{Proximal Policy Optimization.} PPO achieved perfect solutions on $n = 10$ grids (20 points, zero violations) but incurred a collinearity violation on $n = 11$ grids, revealing difficulty maintaining constraint satisfaction as problem complexity increases.
 
-\textbf{SciML.} The gradient flow recovered optimal $2n$-point configurations for every $n \in \{10,\ldots,18\} \setminus \{17\}$, with per-run success rates from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. The best $n=18$ run reached 36 points in ${\sim}588$\,s on Apple M2. Two failure modes are visible: at $n=17$ the best run placed 33 points with a single residual collinearity; at $n=19$ the best attempt reached 35 points with three violations.
+\textbf{SciML.} The gradient flow recovered optimal $2n$-point configurations for every $n \in \{10,\ldots,18\} \setminus \{17\}$, with per-run success rates from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. The best $n=18$ run reached 36 points in ${\sim}588$\,s on Apple M2. Two failure modes are visible: at $n=17$ one seed produced a valid 34-point configuration, but the 10-run ablation yielded 0/10 successes (best: 34 points, 0 violations on a single seed; systematic runs: 0/10, min 2 residual violations); at $n=19$ the best attempt reached 35 points with three violations.
 
 % TODO(SciML): figure --- best 36-point n=18 SciML solution.
 % Path: figures/sciml_solution_n18.png  (NOT YET COPIED IN).
@@ -558,7 +560,7 @@ $19\times 19$ & 38 & -- & -- & --         & 38 \\
 
 \subsection{Training Dynamics}
 
-Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 training steps. Both training and test loss drop from above 5.0 to near 0.1, with a minimal train-test gap throughout, indicating strong generalization without overfitting.
+Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 training steps (the first 3 of 20 generations; each generation runs 5,000 steps). Both training and test loss drop from above 5.0 to near 0.1, with a minimal train-test gap throughout, indicating strong generalization without overfitting.
 
 \begin{figure}[htbp]
 		\centering

@@ -126,7 +126,7 @@ Classical optimization remains essential for exact solutions, while AI methods o
 \fi
 The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, a famous problem in combinatorial geometry.
 We compare four approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, (iii) reinforcement learning using proximal policy optimization (PPO), and (iv) a Scientific Machine Learning (SciML) method that recasts the problem as continuous energy minimisation solved by gradient flow on Apple Metal.
-ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML reached optimal $2n$ configurations through $n = 18$ on an M2 MacBook and without symmetry pruning.
+ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML reached optimal $2n$ configurations up to $n = 18$ on an M2 MacBook and without symmetry pruning, although at $n = 17$ the original 10-run sweep achieved 0/10 success and optimality was reproduced only for a specific seed.
 Continuous-relaxation methods extend the reach of learning-based solvers well beyond the discrete-search ceilings of PatternBoost and PPO, suggesting a productive new direction for combinatorial geometry.
 \end{abstract}
 
@@ -144,7 +144,7 @@ We consider the No-Three-In-Line problem \cite{GuyKelly1968}: What is the maximu
 
 A trivial upper bound of $2n$ points follows from the pigeonhole principle, as no row or column can contain more than two points. The best proven lower bound, due to Hall, Jackson, Sudbery, and Wild, places approximately $1.5n$ points using modular hyperbola constructions \yrcite{Hall1975}. However, Guy and Kelly conjectured that for sufficiently large $n$, the maximum asymptotically approaches only $cn$ points, where $c \approx 1.814$ \yrcite{GuyKelly1968}. This leaves a significant gap between the best-proven result and the conjectured limit, underscoring the problem's persistent difficulty.
 
-Traditional computational approaches, such as recursive backtracking algorithms and integer linear programming (ILP), frame the No-Three-In-Line problem as a constraint satisfaction task by encoding collinearity constraints algebraically and using branch-and-bound optimization \cite{NemhauserWolsey1988, Eppstein2018}. These methods grow exponentially in $n$. Recent CP-SAT and GPU enumeration push exact solutions to $n \ge 60$ \cite{FlammenkampRecords}, but both depend critically on symmetry pruning: with that restriction removed, unrestricted exact completeness in the public record extends to at most $n = 19$--$20$ \cite{FlammenkampRecords}.
+Traditional computational approaches, such as recursive backtracking algorithms and integer linear programming (ILP), frame the No-Three-In-Line problem as a constraint satisfaction task by encoding collinearity constraints algebraically and using branch-and-bound optimization \cite{NemhauserWolsey1988, Eppstein2018}. These methods grow exponentially in $n$. Recent CP-SAT and GPU enumeration push exact solutions to $n \ge 60$ \cite{FlammenkampRecords}, but both depend critically on symmetry pruning: with that restriction removed, unrestricted exact completeness in the public record extends to at most $n = 19$--$20$ \cite{FlammenkampRecords}. This gap highlights how strongly current exact methods still depend on symmetry reduction.
 
 Tsuchiya and Takefuji applied classical neural networks to the No-Three-In-Line problem in 1995 \yrcite{Tsuchiya1995}; modern ML approaches have not revisited the problem until recently. Recent ML approaches to combinatorial optimization include reinforcement learning, graph neural networks, and transformer-based pattern search \cite{Mazyavkina2021,Cappart2023,Vaswani2017}. A recent breakthrough came with PatternBoost \cite{Charton2024}, which discovered a counterexample to Graham and Harary's conjecture on hypercube subgraphs \cite{GrahamHarary1992}. While these applications demonstrate PatternBoost's effectiveness on geometric point placement problems with distance-based constraints, its application to collinearity-based constraints remains unexplored.
 
@@ -475,20 +475,9 @@ Table~\ref{tab:sciml_hyperparams} summarises the SciML configuration. Energy and
 \toprule
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
-\multicolumn{2}{l}{\textup{Energy}} \\
-Collinearity penalty $\alpha$ & per-$n$ schedule (Sec.~3.5) \\
-Binary regularisation $\mu$ & $4.0$--$5.0$ \\
-Per-line normalisation & mean-incidence \\
-\midrule
-\multicolumn{2}{l}{\textup{Solver}} \\
-Integrator & fixed-step RK4 \\
-Time horizon $T$ & $10$ ($n \le 15$), $25$ ($n=16$), $30$ ($n \ge 17$) \\
-Post-processing & top-$2n$ thresholding only \\
-\midrule
-\multicolumn{2}{l}{\textup{Search}} \\
 Parallel trajectories $R$ & $5000$ \\
-Initialisation & uniform random in $[0,1]^{n^2}$ \\
-Threshold $\tau$ & top-$2n$ entries of $\mathbf{x}(T)$ \\
+Time horizon $T$ & $10$ ($n \le 15$), $25$ ($n=16$), $30$ ($n=17,18$) \\
+Collinearity penalty $\alpha$ & per-$n$ schedule for $n \le 18$ (Fig.~\ref{fig:sciml_alpha}) \\
 GPU backend & Apple Metal (\texttt{Metal.jl}) \\
 \bottomrule
 \end{tabular}}
@@ -539,14 +528,14 @@ $15\times 15$ & 30 & 29 & -- & 30 (8/10)  & 30 \\
 $16\times 16$ & -- & -- & -- & 32 (8/10)  & 32 \\
 $17\times 17$ & -- & -- & -- & 34*        & 34 \\
 $18\times 18$ & -- & -- & -- & 36 (9/10)  & 36 \\
-$19\times 19$ & 38 & -- & -- & --         & 38 \\
+$19\times 19$ & 38 & -- & -- & --$^{\dagger}$ & 38 \\
 \bottomrule
 \end{tabular}}
 \end{sc}
 \end{small}
 \end{center}
 \vspace{0.1in}
-{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10.}
+{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10. $^{\dagger}$ SciML at $19\times19$: attempted 10-run sweep, 0/10 valid solutions; best attempt reached 35 points with 3 violations.}
 \end{table}
 
 \textbf{Integer Linear Programming.} ILP achieved provably optimal solutions up to $n = 19$ (38 points), providing the strongest baseline across all tested grid sizes.
@@ -557,11 +546,7 @@ $19\times 19$ & 38 & -- & -- & --         & 38 \\
 
 \textbf{SciML.} The gradient flow recovered optimal $2n$-point configurations for every $n \in \{10,\ldots,18\} \setminus \{17\}$, with per-run success rates from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. For $n=18$, the fastest successful run reached 36 points in ${\sim}218$\,s on Apple M2. Two failure modes are visible: at $n=17$, we reproduced a valid 34-point solution for a specific seed, but the original 10-run ablation yielded 0/10 success (failed runs bottomed out at two residual violations); at $n=19$ the best attempt reached 35 points with three violations.
 
-% TODO(SciML): figure --- best 36-point n=18 SciML solution.
-% Path: figures/sciml_solution_n18.png  (NOT YET COPIED IN).
-% Source: /Users/pranavr/Developer/Work/Research/neurIPS/NeurIPS_Paper/
-%         experiments/solutions_ablation/g1/  (best n=18 run).
-% Mirror existing fig:patternboost_n14 / fig:ilp_n19 layout.
+Figure~\ref{fig:sciml_n18} shows the best SciML solution on an $18 \times 18$ grid achieving 36 points.
 
 \subsection{Training Dynamics}
 
@@ -576,17 +561,17 @@ Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 trainin
 
 \subsection{Parameter Scaling for SciML}
 
-The collinearity-penalty schedule has two regimes. For $n \le 10$ we use unnormalised line penalties and $\alpha$ rises linearly with $n$, from $\alpha = 3.3$ at $n = 2$ to $\alpha = 16.7$ at $n = 10$ --- a slope of roughly $5/3$ per unit grid size. From $n = 11$ onwards we switch to mean-incidence normalisation (Section~2.5.1), which divides each line's penalty by line length; $\alpha$ then no longer needs to grow with the constraint count, and we hold it near $10$ for $n = 11$--$16$, decreasing to $7$ at $n = 18$. The integration horizon $T$ stays at $10$ for $n \le 15$, $25$ at $n = 16$, and $30$ for $n \ge 17$. The two regimes where success collapses, $n = 17$ and $n = 19$, coincide with the schedule's tightest margin: the unnormalised regime would have required $\alpha \approx 30$ at $n = 17$, beyond what the GPU's Float32 dynamic range can stably support.
+The collinearity-penalty schedule has two regimes. For $n \le 10$ we use unnormalised line penalties and $\alpha$ rises linearly with $n$, from $\alpha = 3.3$ at $n = 2$ to $\alpha = 16.7$ at $n = 10$ --- a slope of roughly $5/3$ per unit grid size. From $n = 11$ onwards we switch to mean-incidence normalisation (Section~2.5.1), which divides each line's penalty by line length; $\alpha$ then no longer needs to grow with the constraint count, and we hold it near $10$ for $n = 11$--$16$, decreasing to $7$ at $n = 18$. The integration horizon $T$ stays at $10$ for $n \le 15$, $25$ at $n = 16$, and $30$ for $n = 17,18$. The reported $n=19$ exploratory sweep used a separate $T=10$, $\alpha=8$ setting. The two regimes where success collapses, $n = 17$ and $n = 19$, coincide with the schedule's tightest margin: the unnormalised regime would have required $\alpha \approx 30$ at $n = 17$, beyond what the GPU's Float32 dynamic range can stably support.
 
-% TODO(SciML): figure --- alpha vs n scaling plot.
-% Path: figures/sciml_alpha_scaling.png  (NOT YET COPIED IN).
-% Source: regenerate from experiments/data/hyperparam_labels.csv.
-% Mirror layout/sizing of fig:patternboost_loss.
+Figure~\ref{fig:sciml_alpha} shows the full $\alpha(n)$ and $T(n)$ schedules.
 
-% TODO(SciML): convergence-trajectory figure (energy(t) trace) showing
-% the early-best heuristic --- solutions emerge in first 10--20% of
-% trajectory.  Path: figures/sciml_trajectory.png (NOT YET COPIED IN).
-% Source: experiments/results_ablation/logs_20260423_224700/.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\linewidth]{sciml_alpha_scaling.png}
+    \caption{SciML collinearity-penalty schedule $\alpha(n)$ (blue, left axis) and integration horizon $T(n)$ (orange, right axis). Shaded regions mark the unnormalised ($n \le 10$) and mean-incidence ($n \ge 11$) regimes.}
+    \label{fig:sciml_alpha}
+\end{figure}
+
 
 \subsection{Limitations}
 
@@ -1139,9 +1124,11 @@ This paper presents work whose goal is to advance the field of Machine Learning.
     \caption{ILP optimal solution on $19 \times 19$ grid achieving 38 points.}
     \label{fig:ilp_n19}
 \end{figure}
-appendix.  Apart from this possible change, the style (font size, spacing,
-margins, page numbering, etc.) should be kept the same as the main body.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.55\linewidth]{sciml_solution_n18.png}
+    \caption{SciML solution on an $18 \times 18$ grid achieving 36 points without symmetry pruning.}
+    \label{fig:sciml_n18}
+\end{figure}
 \end{document}

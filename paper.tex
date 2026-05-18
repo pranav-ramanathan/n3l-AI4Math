@@ -126,7 +126,7 @@ Classical optimization remains essential for exact solutions, while AI methods o
 \fi
 The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, a famous problem in combinatorial geometry.
 We compare four approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, (iii) reinforcement learning using proximal policy optimization (PPO), and (iv) a Scientific Machine Learning (SciML) method that recasts the problem as continuous energy minimisation solved by gradient flow on Apple Metal.
-ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML recovers optimal $2n$ configurations for every $n$ from $10$ to $18$ except $n = 17$, on commodity GPU hardware and without symmetry pruning.
+ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML reached optimal $2n$ configurations through $n = 18$ on an M2 MacBook and without symmetry pruning.
 Continuous-relaxation methods extend the reach of learning-based solvers well beyond the discrete-search ceilings of PatternBoost and PPO, suggesting a productive new direction for combinatorial geometry.
 \end{abstract}
 
@@ -268,14 +268,14 @@ This greedy lookahead strategy produces saturated configurations. We generate 20
 
 \textbf{Priority Queue (TopPool).} Best configurations are maintained in a fixed-capacity priority queue implemented as a min-heap of size $K = 20{,}000$. Each entry stores a tuple $(s, \sigma)$ where $s$ is the configuration score (number of points) and $\sigma$ is the tokenized sequence. When the heap is full and a new configuration with score $s' > s_{\min}$ arrives, the minimum-score entry is evicted and the new entry is inserted. This ensures training always uses the top-performing configurations discovered.
 
-\textbf{Iterative Refinement Loop.} PatternBoost alternates between local and global optimization over 20 generations, formalized in Algorithm~\ref{alg:patternboost}.
+\textbf{Iterative Refinement Loop.} PatternBoost alternates between local and global optimization, running until a valid $2n$-point configuration is found or a generation budget is exhausted, formalized in Algorithm~\ref{alg:patternboost}.
 \begin{algorithm}[htbp]
 \caption{PatternBoost Iterative Refinement}
 \label{alg:patternboost}
 \begin{algorithmic}[1]
-\STATE {\bfseries Input:} Initial pool $\mathcal{P}_0$ of 20,000 configurations, number of generations $T = 20$
+\STATE {\bfseries Input:} Initial pool $\mathcal{P}_0$ of 20,000 configurations, generation budget $T_{\max}$
 \STATE {\bfseries Output:} Optimized configuration pool $\mathcal{P}_T$
-\FOR{generation $t = 1$ to $T$}
+\FOR{generation $t = 1$ to $T_{\max}$}
     \STATE \textbf{Load Pool:} Initialize TopPool with $\mathcal{P}_{t-1}$
     \STATE \textbf{Data Augmentation:} $\mathcal{D}_t \gets \emptyset$
     \FOR{each configuration $c \in \mathcal{P}_{t-1}$}
@@ -327,8 +327,8 @@ Optimizer & AdamW \\
 Learning rate & $10^{-4}$ \\
 Weight decay & 0.1 \\
 Batch size & 64 \\
-% Steps per generation & 5,000 \\
-% Number of generations & 20 \\
+Steps per generation & 5,000 \\
+Generation budget $T_{\max}$ & 5--80 (grid-size dependent) \\
 % Train/test split & 90/10 \\
 % Checkpoint frequency & Every 500 steps \\
 \bottomrule
@@ -436,10 +436,15 @@ Discrete enumeration scales exponentially in $n$, and the methods of Sections 2.
 
 Let $\mathbf{x} \in [0,1]^{n^2}$ be a continuous relaxation of the binary indicator matrix $\mathbf{X}$ of Section 2.1, with $x_{i,j}$ now interpreted as a probability of a point at cell $(i,j)$. We optimise an energy with three terms,
 \begin{equation}
-E(\mathbf{x}) = \alpha \, E_{\text{coll}}(\mathbf{x}) + E_{\text{count}}(\mathbf{x}) + \gamma \, E_{\text{bin}}(\mathbf{x}),
+E(\mathbf{x}) = \alpha \, E_{\text{coll}}(\mathbf{x}) + E_{\text{count}}(\mathbf{x}) + \mu \, E_{\text{bin}}(\mathbf{x}),
 \label{eq:sciml_energy}
 \end{equation}
-where $E_{\text{coll}}$ penalises every grid line by the smooth excess of its summed mass over two, $E_{\text{count}} = -\sum_{i,j} x_{i,j}$ rewards point count, and $E_{\text{bin}} = \sum_{i,j} 4 x_{i,j}^2 (1 - x_{i,j})^2$ is a double-well term that pushes each $x_{i,j}$ toward $\{0,1\}$. The collinearity term reuses the line-incidence structure enumerated in Section 2.1, replacing the $O(n^6)$ triple enumeration with $O(n^3)$ per-line sums. Per-line penalties are normalised by line length (\textit{mean-incidence}), which keeps $\alpha$ within a narrow range as $n$ grows.
+where $E_{\text{count}} = -\sum_{i,j} x_{i,j}$ rewards point count, and $E_{\text{bin}} = \sum_{i,j} 4 x_{i,j}^2 (1 - x_{i,j})^2$ is a double-well term that pushes each $x_{i,j}$ toward $\{0,1\}$. The collinearity penalty is
+\begin{equation}
+E_{\text{coll}}(\mathbf{x}) = \sum_{\ell} \frac{1}{c_{\ell}} \sum_{\substack{i < j < k \\ i,j,k \,\in\, \ell}} x_i\, x_j\, x_k,
+\label{eq:sciml_ecoll}
+\end{equation}
+where the outer sum runs over all lines $\ell$ through at least three grid points, $c_{\ell}$ is the mean incidence of points on line $\ell$ (\textit{mean-incidence} normalisation), and the inner sum is the elementary symmetric polynomial $e_3$ of the mass values on $\ell$. This term is zero whenever at most two points on any line carry nonzero mass, and grows as soon as a third point is activated. The collinearity term reuses the line-incidence structure of Section 2.1, replacing $O(n^6)$ triple enumeration with $O(n^3)$ per-line sums; the mean-incidence normalisation keeps $\alpha$ within a narrow range as $n$ grows.
 
 \subsubsection{Gradient Flow Dynamics}
 
@@ -472,16 +477,16 @@ Table~\ref{tab:sciml_hyperparams} summarises the SciML configuration. Energy and
 \midrule
 \multicolumn{2}{l}{\textup{Energy}} \\
 Collinearity penalty $\alpha$ & per-$n$ schedule (Sec.~3.5) \\
-Binary regularisation $\gamma$ & $4.0$--$5.0$ \\
+Binary regularisation $\mu$ & $4.0$--$5.0$ \\
 Per-line normalisation & mean-incidence \\
 \midrule
 \multicolumn{2}{l}{\textup{Solver}} \\
 Integrator & fixed-step RK4 \\
 Time horizon $T$ & $10$ ($n \le 15$), $25$ ($n=16$), $30$ ($n \ge 17$) \\
-Refinement & optional ADAM $\rightarrow$ L-BFGS \\
+Post-processing & top-$2n$ thresholding only \\
 \midrule
 \multicolumn{2}{l}{\textup{Search}} \\
-Parallel trajectories $R$ & $30$ \\
+Parallel trajectories $R$ & $5000$ \\
 Initialisation & uniform random in $[0,1]^{n^2}$ \\
 Threshold $\tau$ & top-$2n$ entries of $\mathbf{x}(T)$ \\
 GPU backend & Apple Metal (\texttt{Metal.jl}) \\
@@ -532,7 +537,7 @@ $13\times 13$ & -- & -- & -- & 26 (8/10)  & 26 \\
 $14\times 14$ & 28 & 28 & -- & 28 (4/10)  & 28 \\
 $15\times 15$ & 30 & 29 & -- & 30 (8/10)  & 30 \\
 $16\times 16$ & -- & -- & -- & 32 (8/10)  & 32 \\
-$17\times 17$ & -- & -- & -- & --         & 34 \\
+$17\times 17$ & -- & -- & -- & 34*        & 34 \\
 $18\times 18$ & -- & -- & -- & 36 (9/10)  & 36 \\
 $19\times 19$ & 38 & -- & -- & --         & 38 \\
 \bottomrule
@@ -541,16 +546,16 @@ $19\times 19$ & 38 & -- & -- & --         & 38 \\
 \end{small}
 \end{center}
 \vspace{0.1in}
-{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration.}
+{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10.}
 \end{table}
 
 \textbf{Integer Linear Programming.} ILP achieved provably optimal solutions up to $n = 19$ (38 points), providing the strongest baseline across all tested grid sizes.
 
-\textbf{PatternBoost.} PatternBoost achieved optimal solutions up to $n = 14$ (28 points) and discovered 29-point configurations on $n = 15$ grids, one short of the known optimum, but did not scale beyond $n = 15$.
+\textbf{PatternBoost.} PatternBoost achieved optimal solutions up to $n = 14$ (28 points) and discovered 29-point configurations on $n = 15$ grids, one short of the known optimum, but did not scale beyond $n = 15$. Training ran for between 5 and 80 generations (5,000 steps each) per grid size.
 
-\textbf{Proximal Policy Optimization.} PPO achieved perfect solutions on $n = 10$ grids (20 points, zero violations) but incurred a collinearity violation on $n = 11$ grids, revealing difficulty maintaining constraint satisfaction as problem complexity increases.
+\textbf{Proximal Policy Optimization.} PPO achieved perfect solutions on $n = 10$ grids (20 points, zero violations) but incurred a collinearity violation on $n = 11$ grids, revealing difficulty maintaining constraint satisfaction as problem complexity increases. Each model was trained in a single run (${\sim}66$--$73$ min for $n=10$; ${\sim}69$ min for $n=11$).
 
-\textbf{SciML.} The gradient flow recovered optimal $2n$-point configurations for every $n \in \{10,\ldots,18\} \setminus \{17\}$, with per-run success rates from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. The best $n=18$ run reached 36 points in ${\sim}588$\,s on Apple M2. Two failure modes are visible: at $n=17$ one seed produced a valid 34-point configuration, but the 10-run ablation yielded 0/10 successes (best: 34 points, 0 violations on a single seed; systematic runs: 0/10, min 2 residual violations); at $n=19$ the best attempt reached 35 points with three violations.
+\textbf{SciML.} The gradient flow recovered optimal $2n$-point configurations for every $n \in \{10,\ldots,18\} \setminus \{17\}$, with per-run success rates from $4/10$ at $n=14$ to $10/10$ at $n=10$ and $n=12$. For $n=18$, the fastest successful run reached 36 points in ${\sim}218$\,s on Apple M2. Two failure modes are visible: at $n=17$, we reproduced a valid 34-point solution for a specific seed, but the original 10-run ablation yielded 0/10 success (failed runs bottomed out at two residual violations); at $n=19$ the best attempt reached 35 points with three violations.
 
 % TODO(SciML): figure --- best 36-point n=18 SciML solution.
 % Path: figures/sciml_solution_n18.png  (NOT YET COPIED IN).
@@ -609,7 +614,7 @@ Our study presents a comparison of classical, learning-based, and SciML approach
 
 The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity, illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. The SciML method exhibits a different failure mode: a continuous-discrete gap that opens at $n = 17$ and $n = 19$, where the gradient flow stabilises configurations with one to three residual collinearities and the threshold $\tau$ cannot reliably round them to a valid binary solution; this regime is also where the GPU's Float32 dynamic range limits how much further the collinearity penalty $\alpha$ can be raised. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
 
-Each method was evaluated up to the grid size at which it could no longer reliably produce valid solutions, with computational cost as the primary limiting factor for ILP. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple, limiting its ability to handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
+Each method was evaluated up to the grid size at which it could no longer reliably produce valid solutions, with computational cost as the primary limiting factor for ILP. Unlike SciML, whose shorter run times made 10-seed sweeps feasible on the M2 MacBook, PPO and PatternBoost were evaluated from a single training run because repeating their much longer end-to-end training across seeds was not practical under our hardware budget. Wall-clock times are therefore not directly comparable across methods. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple, limiting its ability to handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
 
 Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Extending the SciML approach beyond the No-Three-In-Line problem --- in particular to other forbidden-configuration problems in combinatorial geometry --- is a natural next step.
 
@@ -1089,24 +1094,7 @@ Code for all four methods will be made publicly available upon acceptance.
 
 \section*{Impact Statement}
 
-Authors are \textbf{required} to include a statement of the potential broader
-impact of their work, including its ethical aspects and future societal
-consequences. This statement should be in an unnumbered section at the end of
-the paper (co-located with Acknowledgements -- the two may appear in either
-order, but both must be before References), and does not count toward the paper
-page limit. In many cases, where the ethical impacts and expected societal
-implications are those that are well established when advancing the field of
-Machine Learning, substantial discussion is not required, and a simple
-statement such as the following will suffice:
-
-``This paper presents work whose goal is to advance the field of Machine
-Learning. There are many potential societal consequences of our work, none
-which we feel must be specifically highlighted here.''
-
-The above statement can be used verbatim in such cases, but we encourage
-authors to think about whether there is content which does warrant further
-discussion, as this statement will be apparent if the paper is later flagged
-for ethics review.
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here.
 
 \bibliography{main}
 \bibliographystyle{icml2026}

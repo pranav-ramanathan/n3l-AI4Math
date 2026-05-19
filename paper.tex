@@ -134,7 +134,7 @@ We consider the No-Three-In-Line problem \cite{GuyKelly1968}: What is the maximu
 \end{figure}
 
 
-A trivial upper bound of $2n$ points follows from the pigeonhole principle, as no row or column can contain more than two points. The best proven lower bound, due to Hall, Jackson, Sudbery, and Wild, places approximately $1.5n$ points using modular hyperbola constructions \yrcite{Hall1975}. However, Guy and Kelly conjectured that for sufficiently large $n$, the maximum asymptotically approaches only $cn$ points, where $c \approx 1.814$ \yrcite{GuyKelly1968}. This leaves a significant gap between the best-proven result and the conjectured limit, underscoring the problem's persistent difficulty.
+A trivial upper bound of $2n$ points follows from the pigeonhole principle, as no row or column can contain more than two points. The best proven lower bound, due to Hall, Jackson, Sudbery, and Wild, places approximately $1.5n$ points using modular hyperbola constructions \yrcite{Hall1975}. However, Guy and Kelly conjectured that for sufficiently large $n$, the maximum asymptotically approaches only $cn$ points, where $c \approx 1.814$ \yrcite{GuyKelly1968}. This leaves a significant gap between the best-proven result and the conjectured limit, underscoring the problem's persistent difficulty. The problem has also been studied in three dimensions \cite{PorWood2007} and in an extensible formulation \cite{Nagy2023}.
 
 Traditional computational approaches, such as recursive backtracking algorithms and integer linear programming (ILP), frame the No-Three-In-Line problem as a constraint satisfaction task by encoding collinearity constraints algebraically and using branch-and-bound optimization \cite{NemhauserWolsey1988, Eppstein2018}. These methods grow exponentially in $n$. Recent CP-SAT and GPU enumeration push exact solutions to $n \ge 60$ \cite{FlammenkampRecords}, but both depend critically on symmetry pruning: with that restriction removed, unrestricted exact completeness in the public record extends to at most $n = 19$--$20$ \cite{FlammenkampRecords}. This gap highlights how strongly current exact methods still depend on symmetry reduction.
 
@@ -191,7 +191,7 @@ This formulation establishes the combinatorial and geometric foundation upon whi
 
 \subsection{Integer Linear Programming}
 
-We solve the No-Three-In-Line problem using integer linear programming (ILP) with the Gurobi Optimizer \cite{GurobiOptimization2024}. Using the formulation from Section 2.1, the implementation focuses on efficient constraint generation and solver configuration.
+We solve the No-Three-In-Line problem using integer linear programming (ILP)~\cite{Eppstein2018} with the Gurobi Optimizer \cite{GurobiOptimization2024}. Using the formulation from Section 2.1, the implementation focuses on efficient constraint generation and solver configuration.
 
 \textbf{Constraint Generation.} To enforce the no-three-in-line requirement, we enumerate collinear point sets as formalized in Algorithm~\ref{alg:ilp_constraints}.
 \begin{algorithm}[htbp]
@@ -217,7 +217,7 @@ We solve the No-Three-In-Line problem using integer linear programming (ILP) wit
 \end{algorithmic}
 \end{algorithm}
 
-\textbf{Implementation.} The resulting ILP model contains $n^2$ binary variables and $O(n^3)$ linear constraints, corresponding to the number of distinct lines passing through at least three grid points. We solve the model using Gurobi's branch-and-bound algorithm \cite{NemhauserWolsey1988} with default settings for cutting planes and primal heuristics.
+\textbf{Implementation.} The resulting ILP model contains $n^2$ binary variables and $O(n^3)$ linear constraints, corresponding to the number of distinct lines passing through at least three grid points. We solve the model using Gurobi's branch-and-bound algorithm \cite{NemhauserWolsey1988,Huang2021} with default settings for cutting planes and primal heuristics.
 
 
 \subsection{PatternBoost Transformer Learning}
@@ -422,7 +422,7 @@ Model performance is evaluated every epoch over 20 episodes using success rate (
 \subsection{SciML Gradient Flow}
 \label{sec:sciml}
 
-Discrete enumeration scales exponentially in $n$, and the methods of Sections 2.2--2.4 collectively cover only up to $n = 19$, well below the symmetry-reduced records cited in Section 1. We therefore reformulate the problem in continuous form: instead of choosing a $0/1$ placement, we evolve a real-valued density on the grid under a smooth energy whose minimisers correspond to valid $2n$-point configurations. Solving the resulting ordinary differential equation by gradient flow turns combinatorial search into trajectory integration, a setting in which the Scientific Machine Learning toolchain~\cite{RackauckasNie2017,Karniadakis2021} provides mature, GPU-accelerated solvers.
+Discrete enumeration scales exponentially in $n$, and the methods of Sections 2.2--2.4 collectively cover only up to $n = 19$, well below the symmetry-reduced records cited in Section 1. We therefore reformulate the problem in continuous form: instead of choosing a $0/1$ placement, we evolve a real-valued density on the grid under a smooth energy whose minimisers correspond to valid $2n$-point configurations~\cite{schuetz2022combinatorial}. Solving the resulting ordinary differential equation by gradient flow turns combinatorial search into trajectory integration, a setting in which the Scientific Machine Learning toolchain~\cite{RackauckasNie2017,Karniadakis2021} provides mature, GPU-accelerated solvers.
 
 \subsubsection{Continuous Relaxation and Energy Function}
 

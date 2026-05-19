@@ -111,19 +111,11 @@
 
 % Use ONE of the following lines. DO NOT remove the command.
 % If you have no special notice, use an invisible token to avoid a hyperref empty-anchor warning.
-\printAffiliationsAndNotice{}  % no special notice
+% \printAffiliationsAndNotice{}  % no special notice
 % Or, if applicable, use the standard equal contribution text:
-% \printAffiliationsAndNotice{\icmlEqualContribution}
+\printAffiliationsAndNotice{\icmlEqualContribution}
 
 \begin{abstract}
-% Pre-SciML abstract preserved below for reference. Re-enable by
-% removing the \iffalse..\fi guard.
-\iffalse
-The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, representing a famous problem in combinatorial geometry.
-We compare three approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, and (iii) reinforcement learning using proximal policy optimization (PPO).
-ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids with a reported 96\% reduction in test loss over training, and finds 29 points on $15\times15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ grids due to constraint violations.
-Classical optimization remains essential for exact solutions, while AI methods offer competitive performance on smaller instances. Hybrid approaches combining solvers with learned heuristics appear most promising for scaling to larger grids.
-\fi
 The No-Three-In-Line problem asks for the maximum number of points that can be placed on an $n \times n$ grid with no three collinear, a famous problem in combinatorial geometry.
 We compare four approaches: (i) integer linear programming (ILP) using Gurobi, (ii) transformer-based pattern learning via PatternBoost, (iii) reinforcement learning using proximal policy optimization (PPO), and (iv) a Scientific Machine Learning (SciML) method that recasts the problem as continuous energy minimisation solved by gradient flow on Apple Metal.
 ILP achieves provably optimal solutions up to $19 \times 19$ grids. PatternBoost matches optimal performance up to $14 \times 14$ grids and finds 29 points on $15 \times 15$ grids (optimal is 30). PPO achieves perfect solutions on $10 \times 10$ grids but fails at $11 \times 11$ due to constraint violations. SciML reached optimal $2n$ configurations up to $n = 18$ on an M2 MacBook and without symmetry pruning, although at $n = 17$ the original 10-run sweep achieved 0/10 success and optimality was reproduced only for a specific seed.

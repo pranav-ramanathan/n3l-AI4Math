@@ -498,10 +498,10 @@ We evaluated each method across multiple grid sizes to assess solution quality a
 
 Table \ref{tab:results_comparison} presents the solution quality achieved by each method across different grid sizes. We report the maximum number of points successfully placed while satisfying the no-three-in-line constraint (zero violations). For reference, we include known optimal values $2n$ for grid size $n \times n$.
 
-\begin{table}[htbp]
+\begin{table*}[ht]
 \vspace{0.1in}
 \begin{center}
-\begin{small}
+\begin{footnotesize}
 \begin{sc}
 \caption{Solution Quality Comparison Across Methods and Grid Sizes}
 \label{tab:results_comparison}
@@ -512,7 +512,6 @@ Table \ref{tab:results_comparison} presents the solution quality achieved by eac
 % zero violations in the 10-run ablation, so the cell is "--" (n=17:
 % best single-seed 34 pts / 0 viol but 0/10 in ablation; n=19: best
 % 35 pts / 3 viol; discussed in the SciML paragraph below).
-\resizebox{\columnwidth}{!}{%
 \begin{tabular}{cccccc}
 \toprule
 \textbf{Grid Size} & \textbf{ILP} & \textbf{PatternBoost} & \textbf{PPO} & \textbf{SciML} & \textbf{Known Optimal} \\
@@ -530,13 +529,13 @@ $17\times 17$ & -- & -- & -- & 34*        & 34 \\
 $18\times 18$ & -- & -- & -- & 36 (9/10)  & 36 \\
 $19\times 19$ & 38 & -- & -- & --$^{\dagger}$ & 38 \\
 \bottomrule
-\end{tabular}}
+\end{tabular}
 \end{sc}
-\end{small}
+\end{footnotesize}
 \end{center}
 \vspace{0.1in}
 {\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10. $^{\dagger}$ SciML at $19\times19$: attempted 10-run sweep, 0/10 valid solutions; best attempt reached 35 points with 3 violations.}
-\end{table}
+\end{table*}
 
 \textbf{Integer Linear Programming.} ILP achieved provably optimal solutions up to $n = 19$ (38 points), providing the strongest baseline across all tested grid sizes.
 
@@ -595,6 +594,8 @@ This study is limited to grid sizes up to $n = 19$ for ILP, $n = 15$ for Pattern
 Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Physics-inspired approaches present a particularly compelling direction, where combinatorial problems are reformulated as energy minimisation over relaxed Hamiltonians, enabling gradient-based neural network training~\cite{schuetz2022combinatorial}.
 \fi
 
+% Current 4-paragraph version preserved below; pre-SciML version in \iffalse block above.
+\iffalse
 Across the four paradigms, exact search dominates wherever it applies, while learning-based discrete methods plateau at $n \le 15$. The SciML continuous-relaxation approach reaches $n = 18$ without symmetry pruning; at $n = 19$ the method does not yet reliably converge, a limitation we attribute to compute rather than a fundamental barrier.
 
 The distinct failure modes observed across methods reveal fundamental trade-offs in combinatorial optimization. ILP's branch-and-bound approach guarantees optimality through systematic search space pruning but faces exponential growth in problem complexity, illustrating the combinatorial explosion inherent to exact optimization. PatternBoost's philosophy of rapid training data generation through greedy algorithms creates a quality-speed trade-off: the greedy approach struggles to find high-quality placements as problem complexity increases, constraining the quality of learned patterns. Reinforcement learning improved over training iterations but consistently produced constraint violations beyond $n = 10$, revealing fundamental difficulty in satisfying geometric constraints through reward-based exploration alone. The SciML method exhibits a different failure mode: a continuous-discrete gap that opens at $n = 17$ and $n = 19$, where the gradient flow stabilises configurations with one to three residual collinearities and the threshold $\tau$ cannot reliably round them to a valid binary solution; this regime is also where raising $\alpha$ further tends to freeze trajectories in bad local minima before convergence. These computational bottlenecks underscore that each method occupies a distinct niche in the optimization landscape.
@@ -602,6 +603,15 @@ The distinct failure modes observed across methods reveal fundamental trade-offs
 Each method was evaluated up to the grid size at which it could no longer reliably produce valid solutions, with computational cost as the primary limiting factor for ILP. Unlike SciML, whose shorter run times made 10-seed sweeps feasible on the M2 MacBook, PPO and PatternBoost were evaluated from a single training run because repeating their much longer end-to-end training across seeds was not practical under our hardware budget. Wall-clock times are therefore not directly comparable across methods. Computational constraints prevented exhaustive hyperparameter tuning and investigation of architectural improvements. The PatternBoost model relies heavily on greedy-generated training data quality, with greedy algorithm limitations potentially propagating to the learned model. PPO's reward structure remains relatively simple, limiting its ability to handle sparse binary rewards in constraint satisfaction tasks. The SciML pipeline was evaluated only on Apple Metal: ROCm and CUDA backends were not cross-validated, the per-grid hyperparameter schedule was tuned manually with a single run configuration per $n$, and we did not exploit the rotational and reflective symmetries that the classical solvers rely on at larger $n$.
 
 Future research should prioritize hybrid training paradigms that combine supervised pretraining (PatternBoost's cross-entropy learning) with reinforcement fine-tuning (PPO's exploratory optimization), mirroring successful approaches in language modeling. Transfer learning across grid sizes and curriculum strategies could enable training on smaller grids before scaling to larger instances, with meta-learning potentially discovering optimization strategies that generalize across problem scales. Classical-AI integration offers additional promising directions: ILP warm-starting with PatternBoost candidates could accelerate convergence on larger grids, while PatternBoost training on ILP-optimal smaller solutions could improve pattern quality beyond greedy baselines. Extending the SciML approach beyond the No-Three-In-Line problem --- in particular to other forbidden-configuration problems in combinatorial geometry --- is a natural next step.
+\fi
+
+Across the four paradigms, exact search dominates wherever it applies, while learning-based discrete methods plateau at $n \le 15$. The SciML continuous-relaxation approach reaches $n = 18$ without symmetry pruning; at $n = 19$ the method does not yet reliably converge, a limitation we attribute to compute rather than a fundamental barrier.
+
+ILP's branch-and-bound approach guarantees optimality but faces exponential growth in problem complexity. PatternBoost's greedy data generation creates a quality-speed trade-off that constrains learned pattern quality at larger $n$. Reinforcement learning consistently produces constraint violations beyond $n = 10$, revealing difficulty in satisfying geometric constraints through reward-based exploration. The SciML method's continuous-discrete gap at $n = 17$ and $n = 19$ traps trajectories in configurations with residual collinearities that $\tau$ cannot reliably round to a valid solution.
+
+Unlike SciML, whose shorter run times made 10-seed sweeps feasible on the M2 MacBook, PPO and PatternBoost were evaluated from a single training run due to hardware budget constraints, so wall-clock times are not directly comparable across methods. The SciML pipeline was evaluated only on Apple Metal, the per-grid hyperparameter schedule was tuned manually, and we did not exploit the rotational and reflective symmetries that classical solvers rely on at larger $n$.
+
+Hybrid training combining PatternBoost's supervised pretraining with PPO's reinforcement fine-tuning is a natural next direction. Integrating symmetry pruning into the SciML continuous relaxation could extend reliable convergence beyond $n = 18$. Extending this energy-minimisation framework to other forbidden-configuration problems in combinatorial geometry~\cite{schuetz2022combinatorial} offers a broader test of the paradigm.
 
 % \section{Electronic Submission}
 

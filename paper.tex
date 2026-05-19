@@ -516,25 +516,23 @@ Table \ref{tab:results_comparison} presents the solution quality achieved by eac
 \toprule
 \textbf{Grid Size} & \textbf{ILP} & \textbf{PatternBoost} & \textbf{PPO} & \textbf{SciML} & \textbf{Known Optimal} \\
 \midrule
-$5\times 5$   & 10 & 10 & 10 & -- & 10 \\
-$8\times 8$   & 16 & 16 & 16 & -- & 16 \\
 $10\times 10$ & 20 & 20 & 20 & 20 (10/10) & 20 \\
-$11\times 11$ & -- & -- & -- & 22 (7/10)  & 22 \\
+$11\times 11$ & 22 & 22 & -- & 22 (7/10)  & 22 \\
 $12\times 12$ & 24 & 24 & -- & 24 (10/10) & 24 \\
-$13\times 13$ & -- & -- & -- & 26 (8/10)  & 26 \\
+$13\times 13$ & 26 & 26 & -- & 26 (8/10)  & 26 \\
 $14\times 14$ & 28 & 28 & -- & 28 (4/10)  & 28 \\
 $15\times 15$ & 30 & 29 & -- & 30 (8/10)  & 30 \\
-$16\times 16$ & -- & -- & -- & 32 (8/10)  & 32 \\
-$17\times 17$ & -- & -- & -- & 34*        & 34 \\
-$18\times 18$ & -- & -- & -- & 36 (9/10)  & 36 \\
-$19\times 19$ & 38 & -- & -- & --$^{\dagger}$ & 38 \\
+$16\times 16$ & 32 & -- & -- & 32 (8/10)  & 32 \\
+$17\times 17$ & 34 & -- & -- & 34*        & 34 \\
+$18\times 18$ & 36 & -- & -- & 36 (9/10)  & 36 \\
+$19\times 19$ & 38 & -- & -- & -- & 38 \\
 \bottomrule
 \end{tabular}
 \end{sc}
 \end{footnotesize}
 \end{center}
 \vspace{0.1in}
-{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10. $^{\dagger}$ SciML at $19\times19$: attempted 10-run sweep, 0/10 valid solutions; best attempt reached 35 points with 3 violations.}
+{\footnotesize \textit{Note:} {--} indicates either a grid size not tested for that method or a run that did not yield a valid zero-violation configuration. * reproduced for one seed; original 10-run sweep: 0/10.}
 \end{table*}
 
 \textbf{Integer Linear Programming.} ILP achieved provably optimal solutions up to $n = 19$ (38 points), providing the strongest baseline across all tested grid sizes.

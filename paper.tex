@@ -146,7 +146,7 @@ i_3 & j_3 & 1
 \end{split}
 \end{equation}
 
-The two formulations are mathematically equivalent, however, the implementation uses the line formulation, as this yields fewer constraints overall and a tighter LP relaxation.
+The two formulations are mathematically equivalent; however, the implementation uses the line formulation, as this yields fewer constraints overall and a tighter LP relaxation.
 
 \textbf{Constraint Enumeration.} For an $n \times n$ grid, there are $n^2$ grid cells, yielding $\binom{n^2}{3} = O(n^6)$ possible triplets of points. However, not all triplets lie on a common line. The number of unordered collinear triples grows as $\Theta(n^4 \log n)$. If constraints were written separately for every collinear triple, this would be the relevant count. In our ILP we instead aggregate all collinear points on the same line into a single inequality $\sum_{p\in \ell \cap G_n} x_p \le 2$, so the relevant quantity is the number $|L_n^{\ge 3}|$ of distinct lines containing at least three grid points. This satisfies $|L_n^{\ge 3}| = \Theta(n^4)$, giving $\Theta(n^4)$ line constraints, a reduction of $\Theta(n^6)\to\Theta(n^4\log n)\to\Theta(n^4)$.
 

@@ -12,13 +12,13 @@
 
 \newcommand{\theHalgorithm}{\arabic{algorithm}}
 
-\usepackage{icml2026}
+% \usepackage{icml2026}
 
 % For preprint, use
 % \usepackage[preprint]{icml2026}
 
-% If accepted, instead use the following line for the camera-ready submission:
-% \usepackage[accepted]{icml2026}
+% Camera-ready (accepted):
+\usepackage[accepted]{icml2026}
 
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -89,7 +89,7 @@ We consider the No-Three-In-Line problem \cite{GuyKelly1968}: What is the maximu
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.5\linewidth]{no_three_in_line_n10.png}
+\includegraphics[width=0.5\linewidth]{no_three_in_line_n10.pdf}
 \caption{Optimal solution for the No-Three-In-Line problem on a $10 \times 10$ grid, achieving the maximum of 20 points.}
 \label{fig:problem_intro}
 \end{figure}
@@ -493,7 +493,7 @@ Figure \ref{fig:patternboost_loss} shows PatternBoost's loss over 15,000 trainin
 
 \begin{figure}[htbp]
 		\centering
-		\includegraphics[width=0.85\linewidth]{loss_plot.png}
+		\includegraphics[width=0.85\linewidth]{loss_plot.pdf}
 		\caption{PatternBoost training and test loss over 15,000 steps.}
 		\label{fig:patternboost_loss}
 \end{figure}
@@ -506,7 +506,7 @@ Figure~\ref{fig:sciml_alpha} shows the full $\alpha(n)$ and $T(n)$ schedules.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.85\linewidth]{sciml_alpha_scaling.png}
+    \includegraphics[width=0.85\linewidth]{sciml_alpha_scaling.pdf}
     \caption{SciML collinearity-penalty schedule $\alpha(n)$ (blue, left axis) and integration horizon $T(n)$ (orange, right axis). Mean-incidence normalisation is used throughout; $\alpha$ is hand-tuned per $n$.}
     \label{fig:sciml_alpha}
 \end{figure}
@@ -555,7 +555,7 @@ This work studies optimization strategies for a classical combinatorial geometry
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.55\linewidth]{PatternBoost_n14.png}
+    \includegraphics[width=0.55\linewidth]{PatternBoost_n14.pdf}
     \caption{PatternBoost optimal solution on $14 \times 14$ grid achieving 28 points.}
     \label{fig:patternboost_n14}
 \end{figure}
@@ -564,14 +564,14 @@ This work studies optimization strategies for a classical combinatorial geometry
     \centering
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{best_model_final_state_n11.png}
+        \includegraphics[width=\linewidth]{best_model_final_state_n11.pdf}
         \caption{PPO failure on $11 \times 11$ grid: 22 points with 1 violation.}
         \label{fig:rl_failure}
     \end{minipage}
     \hfill
     \begin{minipage}{0.45\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{best_model_final_state_n10.png}
+        \includegraphics[width=\linewidth]{best_model_final_state_n10.pdf}
         \caption{PPO success on $10 \times 10$ grid: 20 points with 0 violations.}
         \label{fig:rl_success}
     \end{minipage}
@@ -579,14 +579,14 @@ This work studies optimization strategies for a classical combinatorial geometry
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.55\linewidth]{no_three_in_line_n19.png}
+    \includegraphics[width=0.55\linewidth]{no_three_in_line_n19.pdf}
     \caption{ILP optimal solution on $19 \times 19$ grid achieving 38 points.}
     \label{fig:ilp_n19}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.55\linewidth]{sciml_solution_n18.png}
+    \includegraphics[width=0.55\linewidth]{sciml_solution_n18.pdf}
     \caption{SciML solution on an $18 \times 18$ grid achieving 36 points without symmetry pruning.}
     \label{fig:sciml_n18}
 \end{figure}

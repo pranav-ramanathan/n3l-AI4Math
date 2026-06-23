@@ -13,6 +13,8 @@ plans/
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+*.nav
+*.snm
 paper.pdf
 
 # old submission to neurips
